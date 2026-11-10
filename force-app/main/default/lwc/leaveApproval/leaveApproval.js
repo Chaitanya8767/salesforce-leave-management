@@ -8,6 +8,7 @@ export default class LeaveApproval extends LightningElement {
     rows = [];
     selectedId;
     comments = '';
+    errorMessage = '';
 
     @wire(isManager) isManager;
 
@@ -30,6 +31,7 @@ export default class LeaveApproval extends LightningElement {
     }
 
     async load() {
+        this.errorMessage = '';
         try {
             const data = await getRequests({ status: 'Pending' });
             this.rows = data.map((r) => ({
@@ -38,6 +40,7 @@ export default class LeaveApproval extends LightningElement {
             }));
         } catch (error) {
             this.rows = [];
+            this.errorMessage = error.body ? error.body.message : error.message;
         }
         this.selectedId = null;
     }

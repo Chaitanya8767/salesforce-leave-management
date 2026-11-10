@@ -1,0 +1,17 @@
+<template>
+  <lightning-card title="Apply for Leave" icon-name="standard:event">
+    <div class="slds-p-around_medium">
+      <lightning-combobox label="Leave Type" value={leaveType} options={typeOptions}
+                          onchange={handleChange} data-field="leaveType" required></lightning-combobox>
+      <lightning-input type="date" label="Start Date" value={startDate}
+                       onchange={handleChange} data-field="startDate" required></lightning-input>
+      <lightning-input type="date" label="End Date" value={endDate}
+                       onchange={handleChange} data-field="endDate" required></lightning-input>
+      <p class="slds-m-vertical_small"><b>Duration:</b> {durationText}</p>
+      <lightning-textarea label="Reason" value={reason}
+                          onchange={handleChange} data-field="reason" required></lightning-textarea>
+      <lightning-button variant="brand" label="Submit" class="slds-m-top_small"
+                        onclick={handleSubmit}></lightning-button>
+    </div>
+  </lightning-card>
+</template>

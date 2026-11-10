@@ -1,7 +1,11 @@
 <template>
   <lightning-card title="Pending Approvals" icon-name="standard:approval">
+    <lightning-button slot="actions" label="Refresh" onclick={load}></lightning-button>
     <template if:true={isManager.data}>
       <div class="slds-p-around_medium">
+        <template if:true={errorMessage}>
+          <p class="slds-text-color_error slds-m-bottom_small">{errorMessage}</p>
+        </template>
         <template if:true={hasRows}>
           <lightning-datatable key-field="Id" data={rows} columns={columns}
                                max-row-selection="1" onrowselection={handleSelect}></lightning-datatable>
