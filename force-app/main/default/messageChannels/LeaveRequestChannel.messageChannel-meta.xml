@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningMessageChannel xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Tells the leave components on the page to refresh after a request is submitted or decided.</description>
+    <isExposed>false</isExposed>
+    <lightningMessageFields>
+        <description>Which component published the message (form or approval).</description>
+        <fieldName>source</fieldName>
+    </lightningMessageFields>
+    <masterLabel>Leave Request Channel</masterLabel>
+</LightningMessageChannel>

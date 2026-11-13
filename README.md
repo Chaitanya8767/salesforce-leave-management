@@ -1,58 +1,91 @@
-# Salesforce DX Project
+# Employee Leave Management System (Salesforce & LWC)
 
-Salesforce DX is a development approach that brings source-driven development, team collaboration, and continuous integration to the Salesforce Platform. Instead of working directly in an org through a web browser, you work with metadata as source files in a local DX project, track changes in version control, and deploy through automated processes.
+**Wipro Salesforce Training Program – Phase II Mini Project (2026–27)**  
+**Team Members:**  
+- Chaitanya Walunjkar (Roll No: 25TC162)  
+- Harshwardhan Kharat (Roll No: 25TC131)  
+**Institution:** Dnyaan Prasad Global University – School of Technology and Research  
 
-This project template gets you started with the tools and structure you need to build Salesforce applications using source control, scratch orgs, and the Salesforce CLI.
+---
 
-## Prerequisites
+## 📌 Project Overview
+The **Employee Leave Management System** is a full-stack Salesforce application built to streamline leave applications, manager approvals, real-time tracking, and automated validation. It eliminates manual email-based leave tracking by providing dedicated role-based interfaces for employees and managers.
 
-Before you start, make sure you have:
+---
 
-- **Salesforce CLI** - Download from [developer.salesforce.com/tools/salesforcecli](https://developer.salesforce.com/tools/salesforcecli). See [Install Salesforce CLI](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_install_cli.htm) for details.
-- **VS Code with Salesforce Extension Pack** - See [Installation Instructions](https://developer.salesforce.com/docs/platform/sfvscode-extensions/guide/install.html) for details. Includes the Agentforce Vibes extension.
-- **A development org** - Sign up for a free Developer Edition org [here](https://developer.salesforce.com/signup).
-- **Dev Hub enabled** (optional, required to create scratch orgs) - You can enable Dev Hub in your development org under Setup > Dev Hub.  See [Provide Developers Access to Salesforce DX Tools](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_setup_dx_tools.htm).
+## 🚀 Key Features
+- **Leave Application Form (LWC):** Employees submit leave with a live duration calculation. Validation: all fields required, end date not before start date, **start date not in the past** (checked in the browser and again in Apex).
+- **Leave Request List & Filtering (LWC):** Status filter (`All`, `Pending`, `Approved`, `Rejected`), live text search, loading and error states. It **refreshes automatically** (Lightning Message Service) when a request is submitted or decided.
+- **Manager Approval Panel (LWC):** Visible only to users with the `Leave_Manager` custom permission. Approve or reject with comments (a comment is mandatory for rejection).
+- **Notifications:** when a manager decides a request, the employee gets an **in-app (bell) notification** (`Leave_Decision` custom notification type) and an **e-mail**.
+- **Server-Side Rules (Apex):**
+  - `WITH USER_MODE` queries and `insert/update as user` enforce object and field security.
+  - Rejects overlapping Pending/Approved requests for the same employee.
+  - Only `Pending` requests can be decided; invalid statuses are refused.
+  - A manager cannot approve or reject their own request.
+- **Privacy:** `Leave_Request__c` is **Private** – employees see only their own requests; managers see all through the `Leave_Manager` permission set.
 
-## Project Structure
+---
 
-Your DX project follows this structure:
+## 🛠️ Architecture & Tech Stack
+- **Platform:** Salesforce Lightning Platform
+- **UI:** Lightning Web Components (LWC), SLDS, Lightning Message Service
+- **Backend:** Apex (`LeaveRequestController`, `LeaveRequestControllerTest`)
+- **Data Model:** Custom object `Leave_Request__c` (leave type, dates, duration, reason, status, manager comments, employee lookup)
+- **Security:** Custom Permission `Leave_Manager`, Permission Sets `Leave_Employee` and `Leave_Manager` (also grant the app and tab)
+- **Tests:** 14 Apex test methods (run as users holding the real permission sets) and Jest tests for all three components.
 
-- **`force-app/main/default/`** - Your metadata source files live in this default package directory. You can configure additional package directories in the `sfdx-project.json` file.
-- **`config/`** - Scratch org definitions and project settings
-- **`scripts/`** - Automation scripts for common tasks
-- **`sfdx-project.json`** - Project manifest that defines package directories, namespace, API version, and other project-level settings
+---
 
-See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm).
+## 📦 Deployment Instructions
 
-## Get Started
+### 1. Authorize Your Salesforce Org
+```bash
+sf org login web -a LeaveOrg
+```
 
-Ready to start developing? The [Get Started with Salesforce DX](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_get_started_dx.htm) guide walks you through your first project, from creating a scratch org to creating a simple Apex class or LWC to deploying your code to a sandbox.
+### 2. Deploy Metadata
+```bash
+sf project deploy start --target-org LeaveOrg
+```
 
-## Common Salesforce CLI Commands
+### 3. Assign Permission Sets
+- **For Standard Employees:**
+  ```bash
+  sf org assign permset --name Leave_Employee --target-org LeaveOrg
+  ```
+- **For Managers:**
+  ```bash
+  sf org assign permset --name Leave_Manager --target-org LeaveOrg
+  ```
 
-Here are common CLI commands that you'll use the most:
+### 4. Run Apex Unit Tests
+(Notifications: e-mail needs *Setup → Deliverability → Access level = All email*. The bell notification works without it.)
 
-- `sf org login web`: Authorize an org
-- `sf org open`: Open your org in a browser
-- `sf org create scratch`: Create a scratch org
-- `sf project deploy start`: Deploy metadata to your org
-- `sf project retrieve start`: Retrieve metadata from your org
-- `sf template generate <artifact>`: Scaffold new components, such as Apex classes and triggers, LWC components, Lightning apps, and more
-- `sf apex <command>`: Run Apex tests, run anonymous Apex blocks, and view logs
-- `sf data <command>`: Work with test data
-- `sf alias <command>`: Manage org aliases
-- `sf config <command>`: Configure CLI settings
+```bash
+sf apex run test --class-names LeaveRequestControllerTest --code-coverage --result-format human --wait 10 --target-org LeaveOrg
+```
 
-## Use Agentforce Vibes to Build Lightning Apps
+---
 
-Transform your ideas into custom Lightning apps that extend CRM workflows directly in Lightning Experience. Through natural conversations with Agentforce Vibes, implement custom objects and fields, complex business logic, and dynamic UI components. See [Build a Lightning App Using Agentforce Vibes](https://developer.salesforce.com/docs/platform/einstein-for-devs/guide/lexapp-overview.html).
-
-## Additional Resources
-
-- [Agentforce Vibes Developer Guide](https://developer.salesforce.com/docs/platform/einstein-for-devs/guide/einstein-overview.html)
-- [Salesforce CLI Installation Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/)
-- [Salesforce CLI Plugin Development Guide](https://developer.salesforce.com/docs/platform/salesforce-cli-plugin/guide/conceptual-overview.html)
-- [Salesforce VS Code Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
-
+## 📁 Repository Structure
+```
+force-app/main/default/
+├── classes/
+│   ├── LeaveRequestController.cls          # Server-side controller & validation logic
+│   ├── LeaveRequestController.cls-meta.xml
+│   ├── LeaveRequestControllerTest.cls      # Test suite (14 test methods)
+│   └── LeaveRequestControllerTest.cls-meta.xml
+├── customPermissions/
+│   └── Leave_Manager.customPermission-meta.xml
+├── tabs/ messageChannels/ notificationtypes/   # app tab, refresh channel, bell notification type
+├── permissionsets/
+│   ├── Leave_Employee.permissionset-meta.xml
+│   └── Leave_Manager.permissionset-meta.xml
+├── objects/
+│   └── Leave_Request__c/                   # Custom fields & object definition
+└── lwc/
+    ├── leaveRequestForm/                   # Leave application component
+    ├── leaveRequestList/                   # Request tracking & filtering component
+    └── leaveApproval/                      # Manager approval/rejection panel
+```

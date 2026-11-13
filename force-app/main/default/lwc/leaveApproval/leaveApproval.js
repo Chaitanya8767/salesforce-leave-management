@@ -1,5 +1,7 @@
 import { LightningElement, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { publish, subscribe, unsubscribe, MessageContext } from 'lightning/messageService';
+import LEAVE_CHANNEL from '@salesforce/messageChannel/LeaveRequestChannel__c';
 import isManager from '@salesforce/apex/LeaveRequestController.isManager';
 import getRequests from '@salesforce/apex/LeaveRequestController.getRequests';
 import updateStatus from '@salesforce/apex/LeaveRequestController.updateStatus';
@@ -9,8 +11,10 @@ export default class LeaveApproval extends LightningElement {
     selectedId;
     comments = '';
     errorMessage = '';
+    subscription = null;
 
     @wire(isManager) isManager;
+    @wire(MessageContext) messageContext;
 
     columns = [
         { label: 'ID', fieldName: 'Name' },
@@ -24,6 +28,19 @@ export default class LeaveApproval extends LightningElement {
 
     connectedCallback() {
         this.load();
+        // Reload when a new request is submitted from the form.
+        this.subscription = subscribe(this.messageContext, LEAVE_CHANNEL, (message) => {
+            if (!message || message.source !== 'approval') {
+                this.load();
+            }
+        });
+    }
+
+    disconnectedCallback() {
+        if (this.subscription) {
+            unsubscribe(this.subscription);
+            this.subscription = null;
+        }
     }
 
     get hasRows() {
@@ -67,7 +84,7 @@ export default class LeaveApproval extends LightningElement {
             this.showToast('Select a request', 'Pick a row first.', 'warning');
             return;
         }
-        if (status === 'Rejected' && !this.comments) {
+        if (status === 'Rejected' && !this.comments?.trim()) {
             this.showToast('Comment required', 'Please add a comment when rejecting.', 'warning');
             return;
         }
@@ -80,6 +97,8 @@ export default class LeaveApproval extends LightningElement {
             this.showToast('Done', `Request ${status.toLowerCase()}.`, 'success');
             this.comments = '';
             await this.load();
+            // Tell the list to refresh so the new status shows immediately.
+            publish(this.messageContext, LEAVE_CHANNEL, { source: 'approval' });
         } catch (error) {
             const msg = error.body ? error.body.message : error.message;
             this.showToast('Error', msg, 'error');

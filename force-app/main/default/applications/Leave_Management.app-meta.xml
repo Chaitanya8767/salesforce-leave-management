@@ -15,5 +15,4 @@
     <tabs>standard-home</tabs>
     <tabs>Leave_Management_Page</tabs>
     <uiType>Lightning</uiType>
-    <utilityBar>Leave_Management_UtilityBar</utilityBar>
 </CustomApplication>

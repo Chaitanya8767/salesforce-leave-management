@@ -3,9 +3,9 @@
     <div class="slds-p-around_medium">
       <lightning-combobox label="Leave Type" value={leaveType} options={typeOptions}
                           onchange={handleChange} data-field="leaveType" required></lightning-combobox>
-      <lightning-input type="date" label="Start Date" value={startDate}
+      <lightning-input type="date" label="Start Date" value={startDate} min={today}
                        onchange={handleChange} data-field="startDate" required></lightning-input>
-      <lightning-input type="date" label="End Date" value={endDate}
+      <lightning-input type="date" label="End Date" value={endDate} min={endMinDate}
                        onchange={handleChange} data-field="endDate" required></lightning-input>
       <p class="slds-m-vertical_small"><b>Duration:</b> {durationText}</p>
       <lightning-textarea label="Reason" value={reason}

@@ -1,4 +1,6 @@
-import { LightningElement } from 'lwc';
+import { LightningElement, wire } from 'lwc';
+import { subscribe, unsubscribe, MessageContext } from 'lightning/messageService';
+import LEAVE_CHANNEL from '@salesforce/messageChannel/LeaveRequestChannel__c';
 import getRequests from '@salesforce/apex/LeaveRequestController.getRequests';
 
 export default class LeaveRequestList extends LightningElement {
@@ -6,6 +8,10 @@ export default class LeaveRequestList extends LightningElement {
     statusFilter = 'All';
     searchKey = '';
     loading = false;
+    errorMessage = '';
+    subscription = null;
+
+    @wire(MessageContext) messageContext;
 
     statusOptions = ['All', 'Pending', 'Approved', 'Rejected'].map((v) => ({
         label: v,
@@ -25,10 +31,20 @@ export default class LeaveRequestList extends LightningElement {
 
     connectedCallback() {
         this.load();
+        // Refresh automatically when a request is submitted or decided.
+        this.subscription = subscribe(this.messageContext, LEAVE_CHANNEL, () => this.load());
+    }
+
+    disconnectedCallback() {
+        if (this.subscription) {
+            unsubscribe(this.subscription);
+            this.subscription = null;
+        }
     }
 
     async load() {
         this.loading = true;
+        this.errorMessage = '';
         try {
             const data = await getRequests({ status: this.statusFilter });
             this.rows = data.map((r) => ({
@@ -37,6 +53,7 @@ export default class LeaveRequestList extends LightningElement {
             }));
         } catch (error) {
             this.rows = [];
+            this.errorMessage = error.body ? error.body.message : error.message;
         } finally {
             this.loading = false;
         }

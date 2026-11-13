@@ -11,6 +11,9 @@
           <lightning-input type="search" label="Search" onchange={handleSearch}></lightning-input>
         </div>
       </div>
+      <template if:true={errorMessage}>
+        <p class="slds-text-color_error slds-m-bottom_small">{errorMessage}</p>
+      </template>
       <template if:true={loading}>
         <lightning-spinner size="small"></lightning-spinner>
       </template>

@@ -1,5 +1,11 @@
 public with sharing class LeaveRequestController {
 
+    private static AuraHandledException newAuraException(String msg) {
+        AuraHandledException e = new AuraHandledException(msg);
+        e.setMessage(msg);
+        return e;
+    }
+
     @AuraEnabled(cacheable=true)
     public static Boolean isManager() {
         return FeatureManagement.checkPermission('Leave_Manager');
@@ -8,12 +14,29 @@ public with sharing class LeaveRequestController {
     @AuraEnabled
     public static Leave_Request__c saveRequest(String leaveType, Date startDate,
                                                Date endDate, String reason) {
-        if (String.isBlank(leaveType) || startDate == null || endDate == null) {
-            throw new AuraHandledException('Please fill all required fields.');
+        if (String.isBlank(leaveType) || startDate == null || endDate == null
+                || String.isBlank(reason)) {
+            throw newAuraException('Please fill all required fields.');
         }
         if (endDate < startDate) {
-            throw new AuraHandledException('End date cannot be before start date.');
+            throw newAuraException('End date cannot be before start date.');
         }
+        if (startDate < Date.today()) {
+            throw newAuraException('Start date cannot be in the past.');
+        }
+
+        // Block overlapping leave for the same employee (Pending or Approved).
+        Id employeeId = UserInfo.getUserId();
+        Integer overlapping = [SELECT COUNT() FROM Leave_Request__c
+                               WHERE Employee__c = :employeeId
+                               AND Status__c IN ('Pending', 'Approved')
+                               AND Start_Date__c <= :endDate
+                               AND End_Date__c >= :startDate
+                               WITH USER_MODE];
+        if (overlapping > 0) {
+            throw newAuraException('You already have a Pending or Approved leave request that overlaps these dates.');
+        }
+
         Leave_Request__c lr = new Leave_Request__c(
             Leave_Type__c = leaveType,
             Start_Date__c = startDate,
@@ -21,12 +44,12 @@ public with sharing class LeaveRequestController {
             Duration__c = startDate.daysBetween(endDate) + 1,
             Reason__c = reason,
             Status__c = 'Pending',
-            Employee__c = UserInfo.getUserId()
+            Employee__c = employeeId
         );
         try {
-            insert lr;
-        } catch (DmlException e) {
-            throw new AuraHandledException(e.getMessage());
+            insert as user lr;
+        } catch (Exception e) {
+            throw newAuraException(e.getMessage());
         }
         return lr;
     }
@@ -51,10 +74,27 @@ public with sharing class LeaveRequestController {
     @AuraEnabled
     public static void updateStatus(Id requestId, String status, String comments) {
         if (!FeatureManagement.checkPermission('Leave_Manager')) {
-            throw new AuraHandledException('Only managers can approve or reject requests.');
+            throw newAuraException('Only managers can approve or reject requests.');
         }
         if (status != 'Approved' && status != 'Rejected') {
-            throw new AuraHandledException('Invalid status.');
+            throw newAuraException('Invalid status.');
+        }
+        List<Leave_Request__c> records = [SELECT Id, Name, Status__c, Employee__c,
+                                                 Start_Date__c, End_Date__c
+                                          FROM Leave_Request__c
+                                          WHERE Id = :requestId WITH USER_MODE LIMIT 1];
+        if (records.isEmpty()) {
+            throw newAuraException('Leave request not found.');
+        }
+        Leave_Request__c existing = records[0];
+        if (existing.Status__c != 'Pending') {
+            throw newAuraException('Only Pending requests can be approved or rejected.');
+        }
+        if (existing.Employee__c == UserInfo.getUserId()) {
+            throw newAuraException('You cannot approve or reject your own leave request.');
+        }
+        if (status == 'Rejected' && String.isBlank(comments)) {
+            throw newAuraException('A comment is required when rejecting a request.');
         }
         Leave_Request__c lr = new Leave_Request__c(
             Id = requestId,
@@ -62,9 +102,46 @@ public with sharing class LeaveRequestController {
             Manager_Comments__c = comments
         );
         try {
-            update lr;
-        } catch (DmlException e) {
-            throw new AuraHandledException(e.getMessage());
+            update as user lr;
+        } catch (Exception e) {
+            throw newAuraException(e.getMessage());
+        }
+        notifyEmployee(existing, status, comments);
+    }
+
+    // Tells the employee about the decision: bell (in-app) notification + e-mail.
+    // Failures here must never undo the manager's decision, so they are only logged.
+    private static void notifyEmployee(Leave_Request__c req, String status, String comments) {
+        String title = 'Leave request ' + req.Name + ' ' + status.toLowerCase();
+        String body = 'Your leave request ' + req.Name + ' ('
+            + req.Start_Date__c.format() + ' to ' + req.End_Date__c.format()
+            + ') was ' + status.toLowerCase() + '.'
+            + (String.isBlank(comments) ? '' : ' Manager comment: ' + comments);
+
+        try {
+            List<CustomNotificationType> types = [SELECT Id FROM CustomNotificationType
+                                                  WHERE DeveloperName = 'Leave_Decision' LIMIT 1];
+            if (!types.isEmpty()) {
+                Messaging.CustomNotification note = new Messaging.CustomNotification();
+                note.setNotificationTypeId(types[0].Id);
+                note.setTitle(title);
+                note.setBody(body);
+                note.setTargetId(req.Id);
+                note.send(new Set<String>{ String.valueOf(req.Employee__c) });
+            }
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN, 'Bell notification failed: ' + e.getMessage());
+        }
+
+        try {
+            Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+            mail.setTargetObjectId(req.Employee__c);
+            mail.setSaveAsActivity(false);
+            mail.setSubject(title);
+            mail.setPlainTextBody(body);
+            Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ mail });
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN, 'E-mail notification failed: ' + e.getMessage());
         }
     }
 }

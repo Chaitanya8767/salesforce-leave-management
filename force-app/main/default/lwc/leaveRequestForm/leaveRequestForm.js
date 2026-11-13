@@ -1,5 +1,7 @@
-import { LightningElement } from 'lwc';
+import { LightningElement, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { publish, MessageContext } from 'lightning/messageService';
+import LEAVE_CHANNEL from '@salesforce/messageChannel/LeaveRequestChannel__c';
 import saveRequest from '@salesforce/apex/LeaveRequestController.saveRequest';
 
 export default class LeaveRequestForm extends LightningElement {
@@ -7,6 +9,8 @@ export default class LeaveRequestForm extends LightningElement {
     startDate = '';
     endDate = '';
     reason = '';
+
+    @wire(MessageContext) messageContext;
 
     typeOptions = [
         { label: 'Sick', value: 'Sick' },
@@ -16,6 +20,18 @@ export default class LeaveRequestForm extends LightningElement {
 
     handleChange(event) {
         this[event.target.dataset.field] = event.target.value;
+    }
+
+    // Today's date as YYYY-MM-DD in the user's local time zone.
+    get today() {
+        const d = new Date();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${d.getFullYear()}-${month}-${day}`;
+    }
+
+    get endMinDate() {
+        return this.startDate || this.today;
     }
 
     get duration() {
@@ -34,12 +50,16 @@ export default class LeaveRequestForm extends LightningElement {
     }
 
     async handleSubmit() {
-        if (!this.leaveType || !this.startDate || !this.endDate || !this.reason) {
+        if (!this.leaveType || !this.startDate || !this.endDate || !this.reason?.trim()) {
             this.showToast('Missing data', 'Please fill all fields.', 'error');
             return;
         }
         if (!this.duration) {
             this.showToast('Invalid dates', 'End date cannot be before start date.', 'error');
+            return;
+        }
+        if (this.startDate < this.today) {
+            this.showToast('Invalid dates', 'Start date cannot be in the past.', 'error');
             return;
         }
         try {
@@ -54,6 +74,8 @@ export default class LeaveRequestForm extends LightningElement {
             this.startDate = '';
             this.endDate = '';
             this.reason = '';
+            // Tell the list and approval panel to refresh themselves.
+            publish(this.messageContext, LEAVE_CHANNEL, { source: 'form' });
         } catch (error) {
             const msg = error.body ? error.body.message : error.message;
             this.showToast('Error', msg, 'error');
