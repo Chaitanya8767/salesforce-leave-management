@@ -5,11 +5,13 @@ import LEAVE_CHANNEL from '@salesforce/messageChannel/LeaveRequestChannel__c';
 import isManager from '@salesforce/apex/LeaveRequestController.isManager';
 import getRequests from '@salesforce/apex/LeaveRequestController.getRequests';
 import updateStatus from '@salesforce/apex/LeaveRequestController.updateStatus';
+import getAiSummary from '@salesforce/apex/LeaveRequestController.getAiSummary';
 
 export default class LeaveApproval extends LightningElement {
     rows = [];
     selectedId;
     comments = '';
+    aiSummary = '';
     errorMessage = '';
     subscription = null;
 
@@ -20,8 +22,8 @@ export default class LeaveApproval extends LightningElement {
         { label: 'ID', fieldName: 'Name' },
         { label: 'Employee', fieldName: 'employee' },
         { label: 'Type', fieldName: 'Leave_Type__c' },
-        { label: 'Start', fieldName: 'Start_Date__c', type: 'date' },
-        { label: 'End', fieldName: 'End_Date__c', type: 'date' },
+        { label: 'Start', fieldName: 'Start_Date__c', type: 'date-local' },
+        { label: 'End', fieldName: 'End_Date__c', type: 'date-local' },
         { label: 'Days', fieldName: 'Duration__c', type: 'number' },
         { label: 'Reason', fieldName: 'Reason__c' }
     ];
@@ -60,11 +62,13 @@ export default class LeaveApproval extends LightningElement {
             this.errorMessage = error.body ? error.body.message : error.message;
         }
         this.selectedId = null;
+        this.aiSummary = '';
     }
 
     handleSelect(event) {
         const selected = event.detail.selectedRows;
         this.selectedId = selected.length ? selected[0].Id : null;
+        this.aiSummary = '';
     }
 
     handleComments(event) {
@@ -102,6 +106,21 @@ export default class LeaveApproval extends LightningElement {
         } catch (error) {
             const msg = error.body ? error.body.message : error.message;
             this.showToast('Error', msg, 'error');
+        }
+    }
+
+    async showSummary() {
+        if (!this.selectedId) {
+            this.showToast('Select a request', 'Pick a row first.', 'warning');
+            return;
+        }
+        this.aiSummary = 'Generating...';
+        try {
+            this.aiSummary = await getAiSummary({ requestId: this.selectedId });
+        } catch (error) {
+            this.aiSummary = '';
+            const msg = error.body ? error.body.message : error.message;
+            this.showToast('AI summary', msg, 'error');
         }
     }
 

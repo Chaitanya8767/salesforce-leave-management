@@ -109,6 +109,41 @@ public with sharing class LeaveRequestController {
         notifyEmployee(existing, status, comments);
     }
 
+    // AI helper for managers: asks the Prompt Builder template
+    // "Leave_Request_Summary" for a short, neutral summary of one request.
+    // It only suggests text; the manager still approves or rejects.
+    @AuraEnabled
+    public static String getAiSummary(Id requestId) {
+        if (!FeatureManagement.checkPermission('Leave_Manager')) {
+            throw newAuraException('Only managers can generate summaries.');
+        }
+        List<Leave_Request__c> recs = [SELECT Id FROM Leave_Request__c
+                                       WHERE Id = :requestId WITH USER_MODE LIMIT 1];
+        if (recs.isEmpty()) {
+            throw newAuraException('Leave request not found.');
+        }
+        try {
+            ConnectApi.EinsteinPromptTemplateGenerationsInput input =
+                new ConnectApi.EinsteinPromptTemplateGenerationsInput();
+            input.isPreview = false;
+
+            ConnectApi.WrappedValue wv = new ConnectApi.WrappedValue();
+            wv.value = new Map<String, String>{ 'id' => requestId };
+            input.inputParams = new Map<String, ConnectApi.WrappedValue>{
+                'Input:LeaveRequest' => wv
+            };
+            input.additionalConfig = new ConnectApi.EinsteinLlmAdditionalConfigInput();
+            input.additionalConfig.applicationName = 'PromptTemplateGenerationsInvocable';
+
+            ConnectApi.EinsteinPromptTemplateGenerationsRepresentation result =
+                ConnectApi.EinsteinLLM.generateMessagesForPromptTemplate(
+                    'Leave_Request_Summary', input);
+            return result.generations[0].text;
+        } catch (Exception e) {
+            throw newAuraException('AI summary is unavailable: ' + e.getMessage());
+        }
+    }
+
     // Tells the employee about the decision: bell (in-app) notification + e-mail.
     // Failures here must never undo the manager's decision, so they are only logged.
     private static void notifyEmployee(Leave_Request__c req, String status, String comments) {

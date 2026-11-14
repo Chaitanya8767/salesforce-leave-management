@@ -17,7 +17,7 @@ private class LeaveRequestControllerTest {
             u = new User(
                 Alias = alias, Email = alias + '@example.com', EmailEncodingKey = 'UTF-8',
                 LastName = 'Tester', LanguageLocaleKey = 'en_US', LocaleSidKey = 'en_US',
-                ProfileId = p.Id, TimeZoneSidKey = 'Asia/Kolkata',
+                ProfileId = p.Id, TimeZoneSidKey = UserInfo.getTimeZone().getID(),
                 UserName = alias + DateTime.now().getTime() + '@example.com');
             insert u;
             if (permSetName != null) {
@@ -297,5 +297,32 @@ private class LeaveRequestControllerTest {
         }
         System.assert(thrown, 'A manager must not approve their own request');
         System.assertEquals('Pending', statusOf(lr.Id));
+    }
+
+    @isTest static void aiSummaryManagerOnly() {
+        User emp = createUser('emp14', 'Leave_Employee');
+        User mgr = createUser('mgr6', 'Leave_Manager');
+        Leave_Request__c lr = saveAs(emp, 'Sick', inDays(1), inDays(1), 'Fever');
+
+        Boolean blocked = false;
+        System.runAs(emp) {
+            try {
+                LeaveRequestController.getAiSummary(lr.Id);
+            } catch (AuraHandledException e) {
+                blocked = e.getMessage().contains('Only managers');
+            }
+        }
+        System.assert(blocked, 'Employees must not generate AI summaries');
+
+        // The Prompt Builder call cannot really run in a test, so a manager
+        // gets either a summary or the friendly "unavailable" error.
+        System.runAs(mgr) {
+            try {
+                System.assertNotEquals(null, LeaveRequestController.getAiSummary(lr.Id));
+            } catch (AuraHandledException e) {
+                System.assert(e.getMessage().contains('AI summary is unavailable'),
+                    'Unexpected error: ' + e.getMessage());
+            }
+        }
     }
 }

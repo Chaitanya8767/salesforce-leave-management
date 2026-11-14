@@ -22,8 +22,8 @@ export default class LeaveRequestList extends LightningElement {
         { label: 'ID', fieldName: 'Name' },
         { label: 'Employee', fieldName: 'employee' },
         { label: 'Type', fieldName: 'Leave_Type__c' },
-        { label: 'Start', fieldName: 'Start_Date__c', type: 'date' },
-        { label: 'End', fieldName: 'End_Date__c', type: 'date' },
+        { label: 'Start', fieldName: 'Start_Date__c', type: 'date-local' },
+        { label: 'End', fieldName: 'End_Date__c', type: 'date-local' },
         { label: 'Days', fieldName: 'Duration__c', type: 'number' },
         { label: 'Status', fieldName: 'Status__c' },
         { label: 'Manager Comments', fieldName: 'Manager_Comments__c' }

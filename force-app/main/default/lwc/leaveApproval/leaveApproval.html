@@ -14,6 +14,11 @@
           <lightning-button variant="success" label="Approve" onclick={approve}></lightning-button>
           <lightning-button variant="destructive" label="Reject" class="slds-m-left_small"
                             onclick={reject}></lightning-button>
+          <lightning-button label="AI Summary" class="slds-m-left_small"
+                            onclick={showSummary}></lightning-button>
+          <template if:true={aiSummary}>
+            <p class="slds-m-top_small"><b>AI summary (suggestion only):</b> {aiSummary}</p>
+          </template>
         </template>
         <template if:false={hasRows}>
           <p>No pending requests.</p>
